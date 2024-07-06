@@ -1,5 +1,4 @@
 const { SQSClient } = require("@aws-sdk/client-sqs");
-
 let sqs;
 let sqsSetup = {
   init: () => {
@@ -11,7 +10,7 @@ let sqsSetup = {
         secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
       },
     });
-    console.log("SQS Instance Created")
+    console.log("SQS Instance Created");
   },
   getSQS: () => {
     return sqs;

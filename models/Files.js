@@ -6,15 +6,25 @@ const FileSchema = new Schema(
   {
     name: {
       type: String,
-      require: true,
+      required: true,
     },
-    url: {
+    requestID: {
       type: String,
-      require: true,
+      required: true,
     },
     noOfRows: {
       type: Number,
-      require: true,
+      required: true,
+    },
+    webHookDetails: {
+      status: {
+        type: String,
+        enum: ["pending", "processing", "completed", "failed"],
+        default: "pending",
+      },
+      url: {
+        type: String,
+      },
     },
   },
   { timestamps: true }

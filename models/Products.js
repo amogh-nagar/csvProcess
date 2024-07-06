@@ -1,4 +1,4 @@
-const { default: mongoose } = require("mongoose");
+const { default: mongoose } = required("mongoose");
 
 const Schema = mongoose.Schema;
 
@@ -6,7 +6,11 @@ const ProductSchema = new Schema(
   {
     name: {
       type: String,
-      require: true,
+      required: true,
+    },
+    requestID: {
+      type: String,
+      required: true,
     },
     inputUrls: [
       {

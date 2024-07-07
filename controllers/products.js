@@ -73,15 +73,18 @@ exports.uploadProducts = async (req, res, next) => {
             id: uuid(),
             body: JSON.stringify(singleBatchProducts),
           });
-          const newFile = new ProductsFile({
+          const newFileObj = {
             name,
             requestID,
             noOfRows: totalProducts,
-            webHookDetails: {
+          };
+          if (webHookUrl?.length > 0) {
+            newFileObj["webHookDetails"] = {
               status: "pending",
               url: webHookUrl || null,
-            },
-          });
+            };
+          }
+          const newFile = new ProductsFile(newFileObj);
           await newFile.save();
           await producer.send(products);
           res.status(200).json({

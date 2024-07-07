@@ -20,7 +20,6 @@ const FileSchema = new Schema(
       status: {
         type: String,
         enum: ["pending", "completed", "failed"],
-        default: "pending",
       },
       url: {
         type: String,

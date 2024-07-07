@@ -12,7 +12,7 @@ module.exports = () => {
         QueueUrl: process.env.MESSAGE_QUEUE_URL,
         MaxNumberOfMessages: 2,
         VisibilityTimeout: 200,
-        WaitTimeSeconds: 30,
+        WaitTimeSeconds: 20,
       };
 
       try {

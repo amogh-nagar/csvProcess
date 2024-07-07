@@ -51,10 +51,7 @@ exports.uploadProducts = async (req, res, next) => {
             id: uuid(),
             body: JSON.stringify(singleBatchProducts),
           });
-          singleBatchProducts = {
-            products: [],
-            requestID,
-          };
+          singleBatchProducts.products = [];
         }
       }
     });
@@ -65,7 +62,6 @@ exports.uploadProducts = async (req, res, next) => {
             id: uuid(),
             body: JSON.stringify(singleBatchProducts),
           });
-          await producer.send(products);
           const newFile = new ProductsFile({
             name,
             requestID,
@@ -76,6 +72,7 @@ exports.uploadProducts = async (req, res, next) => {
             },
           });
           await newFile.save();
+          await producer.send(products);
           res.status(200).json({
             requestID,
             message: "Images of the Product will be Processed Soon!",

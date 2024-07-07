@@ -11,6 +11,11 @@ app.use(express.json());
 app.use(fileUpload());
 app.use(morgan('dev'));
 app.use("/", require("./routes"));
+app.use((req,res,next)=>{
+    return res.status(200).json({
+        message: "High there :)"
+    })
+})
 
 app.use((error, req, res, next) => {
   return res.status(500).json({

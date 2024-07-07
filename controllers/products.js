@@ -14,6 +14,17 @@ const producer = Producer.create({
 const requiredHeaders = ["S. No.", "Product Name", "Input Image Urls"];
 exports.uploadProducts = async (req, res, next) => {
   try {
+    if (!req.files) {
+      return res.status(400).json({
+        message: "No files were uploaded.",
+      });
+    }
+    if (Array.isArray(req.files)) {
+      return res.status(400).json({
+        message:
+          "More than 1 file were uploaded, Please try again with only 1 file",
+      });
+    }
     const webHookUrl = req.body.webHookUrl;
     const { data, name } = req.files.file;
     const stream = Readable.from(data);
@@ -102,6 +113,11 @@ exports.uploadProducts = async (req, res, next) => {
 exports.checkStatusOfRequest = async (req, res, next) => {
   try {
     const requestID = req.query.requestID;
+    if (!requestID) {
+      return res.status(400).json({
+        message: "No Request ID Found",
+      });
+    }
     const productFile = await ProductsFile.findOne({
       requestID,
     });

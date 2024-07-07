@@ -85,6 +85,7 @@ async function processMessage(message) {
       });
       if (
         productFile.noOfRows == countOfProducts &&
+        productFile.webHookDetails.url?.length > 0 &&
         productFile.webHookDetails.status == "pending"
       ) {
         await callWebHook(productFile.webHookDetails.url, requestID);

@@ -10,8 +10,8 @@ module.exports = () => {
     async function receiveMessages() {
       const params = {
         QueueUrl: process.env.MESSAGE_QUEUE_URL,
-        MaxNumberOfMessages: 2,
-        VisibilityTimeout: 200,
+        MaxNumberOfMessages: 1,
+        VisibilityTimeout: 400,
         WaitTimeSeconds: 20,
       };
 
@@ -21,7 +21,6 @@ module.exports = () => {
         console.log("Consumed Message", messages.length);
         for (const message of messages) {
           await processMessage(message);
-          await deleteMessage(message.ReceiptHandle);
         }
         await receiveMessages();
       } catch (err) {

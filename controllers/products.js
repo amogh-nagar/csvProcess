@@ -97,6 +97,7 @@ exports.uploadProducts = async (req, res, next) => {
       });
     });
   } catch (err) {
+    console.log("Error is", err);
     next(err);
   }
 };
@@ -104,11 +105,9 @@ exports.uploadProducts = async (req, res, next) => {
 exports.checkStatusOfRequest = async (req, res, next) => {
   try {
     const requestID = req.query.requestID;
-    const productFile = await ProductsFile.findOne(
-      {
-        requestID,
-      }
-    );
+    const productFile = await ProductsFile.findOne({
+      requestID,
+    });
     if (!productFile) {
       return res.status(400).json({
         message: "Invalid Request ID",

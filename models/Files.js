@@ -32,5 +32,10 @@ const FileSchema = new Schema(
   },
   { timestamps: true }
 );
-FileSchema.index({ requestID: 1 });
+FileSchema.index(
+  { requestID: 1 },
+  {
+    unique: true,
+  }
+);
 module.exports = mongoose.model("File", FileSchema);

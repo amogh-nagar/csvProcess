@@ -68,6 +68,7 @@ async function processMessage(message) {
           }
           products.push({
             name: product.name,
+            productID: product.productID,
             requestID,
             inputUrls,
             outputUrls,

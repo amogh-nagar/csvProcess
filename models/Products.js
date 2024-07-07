@@ -12,6 +12,10 @@ const ProductSchema = new Schema(
       type: String,
       required: true,
     },
+    productID: {
+      type: String,
+      required: true,
+    },
     inputUrls: [
       {
         type: String,
@@ -26,5 +30,10 @@ const ProductSchema = new Schema(
   { timestamps: true }
 );
 
-ProductSchema.index({ requestID: 1 });
+ProductSchema.index(
+  { productID: 1, requestID: 1 },
+  {
+    unique: true,
+  }
+);
 module.exports = mongoose.model("Product", ProductSchema);

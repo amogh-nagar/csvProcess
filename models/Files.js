@@ -19,7 +19,7 @@ const FileSchema = new Schema(
     webHookDetails: {
       status: {
         type: String,
-        enum: ["pending", "processing", "completed", "failed"],
+        enum: ["pending", "completed", "failed"],
         default: "pending",
       },
       url: {

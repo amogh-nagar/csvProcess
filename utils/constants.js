@@ -7,7 +7,7 @@ const s3 = new AWS.S3({
 });
 
 module.exports = {
-  product_queue_batch: 50,
+  product_queue_batch: 5,
   uploadToS3: async (imageBuffer) => {
     const s3Params = {
       Bucket: process.env.AWS_S3_BUCKET,

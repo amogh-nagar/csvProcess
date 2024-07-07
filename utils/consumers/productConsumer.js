@@ -9,58 +9,64 @@ module.exports = () => {
   const app = Consumer.create({
     queueUrl: process.env.MESSAGE_QUEUE_URL,
     sqs: getSQS(),
-    handleMessage: async (message) => {
-      console.log("Processing Message");
-      const Body = JSON.parse(message.Body),
-        requestID = Body.requestID;
-      const requestFile = await ProductsFile.findOne({
-        requestID,
-      });
-      if (requestFile) {
-        const products = [];
-        for (let productDetails of Body.products) {
-          const product = productDetails.product;
-          try {
-            const inputUrls = product.inputUrls.split(","),
-              outputUrls = [];
-            for (let url of inputUrls) {
-              url = url.trim();
-              try {
-                const imageBuffer = await downloadURL(url);
-                if (!imageBuffer || !imageBuffer.length) {
-                  outputUrls.push("");
-                } else {
-                  const processedImageBuffer = await compressURL(imageBuffer);
-                  const s3Url = await uploadToS3(processedImageBuffer);
-                  outputUrls.push(s3Url);
+    handleMessage: async (message, done) => {
+      try {
+        console.log("Processing Message");
+        const Body = JSON.parse(message.Body),
+          requestID = Body.requestID;
+        const requestFile = await ProductsFile.findOne({
+          requestID,
+        });
+        if (requestFile) {
+          const products = [];
+          for (let productDetails of Body.products) {
+            const product = productDetails.product;
+            try {
+              const inputUrls = product.inputUrls.split(","),
+                outputUrls = [];
+              console.log("Processing URLs");
+              for (let url of inputUrls) {
+                url = url.trim();
+                try {
+                  const imageBuffer = await downloadURL(url);
+                  if (!imageBuffer || !imageBuffer.length) {
+                    outputUrls.push("");
+                  } else {
+                    const processedImageBuffer = await compressURL(imageBuffer);
+                    const s3Url = await uploadToS3(processedImageBuffer);
+                    outputUrls.push(s3Url);
+                  }
+                } catch (error) {
+                  console.error("Error processing image:", error);
                 }
-              } catch (error) {
-                console.error("Error processing image:", error);
               }
+              products.push({
+                name: product.name,
+                requestID,
+                inputUrls,
+                outputUrls,
+              });
+            } catch (error) {
+              console.error("Error processing image:", error);
             }
-            products.push({
-              name: product.name,
-              requestID,
-              inputUrls,
-              outputUrls,
-            });
-          } catch (error) {
-            console.error("Error processing image:", error);
+          }
+          console.log("Saving to DB");
+          await Products.insertMany(products);
+          const countOfProducts = await Products.countDocuments({
+            requestID,
+          });
+          const productFile = await ProductsFile.findOne({
+            requestID,
+          });
+          if (
+            productFile.noOfRows == countOfProducts &&
+            productFile.webHookDetails.status == "pending"
+          ) {
+            await callWebHook(productFile.webHookDetails.url, requestID);
           }
         }
-        await Products.insertMany(products);
-        const countOfProducts = await Products.countDocuments({
-          requestID,
-        });
-        const productFile = await ProductsFile.findOne({
-          requestID,
-        });
-        if (
-          productFile.noOfRows == countOfProducts &&
-          productFile.webHookDetails.status == "pending"
-        ) {
-          await callWebHook(productFile.webHookDetails.url, requestID);
-        }
+      } catch (error) {
+        console.error("Error processing Message:", error);
       }
     },
   });
@@ -97,7 +103,7 @@ async function downloadURL(url) {
 }
 async function callWebHook(url, requestID) {
   try {
-    await axios.post(url, {
+    const request = await axios.post(url, {
       requestID,
       status: "completed",
     });
@@ -108,8 +114,21 @@ async function callWebHook(url, requestID) {
       {
         $set: {
           "webHookDetails.status": "completed",
+          "webHookDetails.response": JSON.stringify(request.data),
         },
       }
     );
-  } catch (err) {}
+  } catch (err) {
+    await ProductsFile.updateOne(
+      {
+        requestID,
+      },
+      {
+        $set: {
+          "webHookDetails.status": "failed",
+          "webHookDetails.response": JSON.stringify(err),
+        },
+      }
+    );
+  }
 }

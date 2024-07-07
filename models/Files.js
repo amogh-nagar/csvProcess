@@ -25,9 +25,12 @@ const FileSchema = new Schema(
       url: {
         type: String,
       },
+      response: {
+        type: String,
+      },
     },
   },
   { timestamps: true }
 );
-
+FileSchema.index({ requestID: 1 });
 module.exports = mongoose.model("File", FileSchema);

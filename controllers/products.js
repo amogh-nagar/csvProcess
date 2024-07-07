@@ -19,13 +19,12 @@ exports.uploadProducts = async (req, res, next) => {
     const stream = Readable.from(data);
     const requestID = uuid();
     const products = [];
-    const singleBatchProductsInitialValue = {
+    let totalProducts = 0,
+      isValid = true;
+    let singleBatchProducts = {
       products: [],
       requestID,
     };
-    let totalProducts = 0,
-      isValid = true;
-    let singleBatchProducts = singleBatchProductsInitialValue;
     const chunks = stream.pipe(csvParser());
     chunks.on("headers", (headers) => {
       if (
@@ -33,7 +32,6 @@ exports.uploadProducts = async (req, res, next) => {
         !requiredHeaders.every((header) => headers.includes(header))
       ) {
         isValid = false;
-        stream.destroy();
       }
     });
     chunks.on("data", (row) => {
@@ -53,33 +51,43 @@ exports.uploadProducts = async (req, res, next) => {
             id: uuid(),
             body: JSON.stringify(singleBatchProducts),
           });
-          singleBatchProducts = singleBatchProductsInitialValue;
+          singleBatchProducts = {
+            products: [],
+            requestID,
+          };
         }
       }
     });
     chunks.on("end", async () => {
-      if (isValid) {
-        products.push({
-          id: uuid(),
-          body: JSON.stringify(singleBatchProducts),
-        });
-        await producer.send(products);
-        const newFile = new ProductsFile({
-          name,
-          requestID,
-          noOfRows: totalProducts,
-          webHookUrl: webHookUrl || null,
-        });
-        await newFile.save();
-        res.status(200).json({
-          requestID,
-          message: "Images of the Product will be Processed Soon!",
-        });
-      } else {
-        res.status(400).json({
-          message:
-            "Invalid CSV, Please try again with Valid CSV, the Headers of the CSV must be S. No., Product Name, Input Image Urls",
-        });
+      try {
+        if (isValid) {
+          products.push({
+            id: uuid(),
+            body: JSON.stringify(singleBatchProducts),
+          });
+          await producer.send(products);
+          const newFile = new ProductsFile({
+            name,
+            requestID,
+            noOfRows: totalProducts,
+            webHookDetails: {
+              status: "pending",
+              url: webHookUrl || null,
+            },
+          });
+          await newFile.save();
+          res.status(200).json({
+            requestID,
+            message: "Images of the Product will be Processed Soon!",
+          });
+        } else {
+          res.status(400).json({
+            message:
+              "Invalid CSV, Please try again with Valid CSV, the Headers of the CSV must be S. No., Product Name, Input Image Urls",
+          });
+        }
+      } catch (err) {
+        console.log("Error occurred while processing", err);
       }
     });
     chunks.on("error", (error) => {
@@ -96,21 +104,38 @@ exports.uploadProducts = async (req, res, next) => {
 exports.checkStatusOfRequest = async (req, res, next) => {
   try {
     const requestID = req.query.requestID;
+    const productFile = await ProductsFile.findOne(
+      {
+        requestID,
+      },
+      {
+        name: 1,
+        noOfRows: 1,
+        requestID: 1,
+        webHookDetails: 1,
+        _id: 0,
+      }
+    );
+    if (!productFile) {
+      return res.status(400).json({
+        message: "Invalid Request ID",
+      });
+    }
     const countOfProducts = await Products.countDocuments({
-      requestID,
-    });
-    const productFile = await ProductsFile.findOne({
       requestID,
     });
     if (productFile.noOfRows == countOfProducts) {
       return res.status(200).json({
         requestID,
         status: "completed",
+        fileDetails: productFile,
       });
     } else {
       return res.status(200).json({
         requestID,
         status: "pending",
+        fileDetails: productFile,
+        numberOfProductsProcesses: countOfProducts,
         percentageOfProductsProcessed:
           (countOfProducts / productFile.noOfRows) * 100,
       });
@@ -118,4 +143,11 @@ exports.checkStatusOfRequest = async (req, res, next) => {
   } catch (err) {
     next(err);
   }
+};
+
+exports.dummyWebHook = (req, res, next) => {
+  console.log("Web Hook Called");
+  return res.status(200).json({
+    message: "Web Hook Processed Successfully",
+  });
 };

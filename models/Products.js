@@ -26,4 +26,5 @@ const ProductSchema = new Schema(
   { timestamps: true }
 );
 
+ProductSchema.index({ requestID: 1 });
 module.exports = mongoose.model("Product", ProductSchema);

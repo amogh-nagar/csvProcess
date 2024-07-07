@@ -19,7 +19,7 @@ exports.uploadProducts = async (req, res, next) => {
         message: "No files were uploaded.",
       });
     }
-    if (Array.isArray(req.files)) {
+    if (Array.isArray(req.files.file)) {
       return res.status(400).json({
         message:
           "More than 1 file were uploaded, Please try again with only 1 file",

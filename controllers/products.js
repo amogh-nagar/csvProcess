@@ -107,13 +107,6 @@ exports.checkStatusOfRequest = async (req, res, next) => {
     const productFile = await ProductsFile.findOne(
       {
         requestID,
-      },
-      {
-        name: 1,
-        noOfRows: 1,
-        requestID: 1,
-        webHookDetails: 1,
-        _id: 0,
       }
     );
     if (!productFile) {

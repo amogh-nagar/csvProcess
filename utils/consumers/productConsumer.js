@@ -1,4 +1,3 @@
-const { Consumer } = require("sqs-consumer");
 const { getSQS } = require("../sqs");
 const ProductsFile = require("../../models/Files");
 const Products = require("../../models/Products");
@@ -6,84 +5,109 @@ const axios = require("axios");
 const sharp = require("sharp");
 const { uploadToS3 } = require("../constants");
 module.exports = () => {
-  const app = Consumer.create({
-    queueUrl: process.env.MESSAGE_QUEUE_URL,
-    sqs: getSQS(),
-    handleMessage: async (message, done) => {
+  const sqs = getSQS();
+  try {
+    async function receiveMessages() {
+      const params = {
+        QueueUrl: process.env.MESSAGE_QUEUE_URL,
+        MaxNumberOfMessages: 2,
+        VisibilityTimeout: 300,
+        WaitTimeSeconds: 20,
+      };
+
       try {
-        console.log("Processing Message");
-        const Body = JSON.parse(message.Body),
-          requestID = Body.requestID;
-        const requestFile = await ProductsFile.findOne({
-          requestID,
-        });
-        if (requestFile) {
-          const products = [];
-          for (let productDetails of Body.products) {
-            const product = productDetails.product;
+        const data = await sqs.receiveMessage(params).promise();
+        const messages = data.Messages || [];
+        console.log("Consumed Message", messages.length);
+        for (const message of messages) {
+          await processMessage(message);
+          await deleteMessage(message.ReceiptHandle);
+        }
+        await receiveMessages();
+      } catch (err) {
+        console.error(err);
+      }
+    }
+    receiveMessages();
+  } catch (err) {
+    console.error("Error while consuming", err.message);
+  }
+
+  console.log("Product Consumer Started");
+};
+async function processMessage(message) {
+  try {
+    console.log("Processing Message");
+    const Body = JSON.parse(message.Body),
+      requestID = Body.requestID;
+    const requestFile = await ProductsFile.findOne({
+      requestID,
+    });
+    if (requestFile) {
+      const products = [];
+      for (let productDetails of Body.products) {
+        const product = productDetails.product;
+        try {
+          const inputUrls = product.inputUrls.split(","),
+            outputUrls = [];
+          console.log("Processing URLs");
+          for (let url of inputUrls) {
+            url = url.trim();
             try {
-              const inputUrls = product.inputUrls.split(","),
-                outputUrls = [];
-              console.log("Processing URLs");
-              for (let url of inputUrls) {
-                url = url.trim();
-                try {
-                  const imageBuffer = await downloadURL(url);
-                  if (!imageBuffer || !imageBuffer.length) {
-                    outputUrls.push("");
-                  } else {
-                    const processedImageBuffer = await compressURL(imageBuffer);
-                    const s3Url = await uploadToS3(processedImageBuffer);
-                    outputUrls.push(s3Url);
-                  }
-                } catch (error) {
-                  console.error("Error processing image:", error);
-                }
+              const imageBuffer = await downloadURL(url);
+              if (!imageBuffer || !imageBuffer.length) {
+                outputUrls.push("");
+              } else {
+                const processedImageBuffer = await compressURL(imageBuffer);
+                const s3Url = await uploadToS3(processedImageBuffer);
+                outputUrls.push(s3Url);
               }
-              products.push({
-                name: product.name,
-                requestID,
-                inputUrls,
-                outputUrls,
-              });
             } catch (error) {
               console.error("Error processing image:", error);
             }
           }
-          console.log("Saving to DB");
-          await Products.insertMany(products);
-          const countOfProducts = await Products.countDocuments({
+          products.push({
+            name: product.name,
             requestID,
+            inputUrls,
+            outputUrls,
           });
-          const productFile = await ProductsFile.findOne({
-            requestID,
-          });
-          if (
-            productFile.noOfRows == countOfProducts &&
-            productFile.webHookDetails.status == "pending"
-          ) {
-            await callWebHook(productFile.webHookDetails.url, requestID);
-          }
+        } catch (error) {
+          console.error("Error processing image:", error);
         }
-      } catch (error) {
-        console.error("Error processing Message:", error);
       }
-    },
-  });
-  app.on("started", () => {
-    console.log("Product Consumer Started");
-  });
-  app.on("error", (err) => {
-    console.error(err.message);
-  });
+      console.log("Saving to DB");
+      await Products.insertMany(products);
+      const countOfProducts = await Products.countDocuments({
+        requestID,
+      });
+      const productFile = await ProductsFile.findOne({
+        requestID,
+      });
+      if (
+        productFile.noOfRows == countOfProducts &&
+        productFile.webHookDetails.status == "pending"
+      ) {
+        await callWebHook(productFile.webHookDetails.url, requestID);
+      }
+    }
+  } catch (error) {
+    console.error("Error processing Message:", error);
+  }
+}
+async function deleteMessage(receiptHandle) {
+  const sqs = getSQS();
+  const params = {
+    QueueUrl: process.env.MESSAGE_QUEUE_URL,
+    ReceiptHandle: receiptHandle,
+  };
 
-  app.on("processing_error", (err) => {
-    console.error(err.message);
-  });
-
-  app.start();
-};
-
+  try {
+    await sqs.deleteMessage(params).promise();
+  } catch (err) {
+    console.error(err);
+  }
+}
 async function compressURL(imageBuffer) {
   try {
     return await sharp(imageBuffer).jpeg({ quality: 50 }).toBuffer();

@@ -1,11 +1,12 @@
-const { SQSClient } = require("@aws-sdk/client-sqs");
+const AWS = require("aws-sdk");
+AWS.config.update({
+  region: process.env.AWS_REGION ,
+});
 let sqs;
 let sqsSetup = {
   init: () => {
-    sqs = new SQSClient({
-      region: process.env.AWS_ACCOUNT_REGION,
+    sqs = new AWS.SQS({
       credentials: {
-        accountId: process.env.AWS_ACCOUNT_ID,
         accessKeyId: process.env.AWS_ACCESS_KEY_ID,
         secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
       },

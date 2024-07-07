@@ -10,7 +10,7 @@ module.exports = () => {
     queueUrl: process.env.MESSAGE_QUEUE_URL,
     sqs: getSQS(),
     handleMessage: async (message) => {
-      console.log("Message is", message);
+      console.log("Processing Message");
       const Body = JSON.parse(message.Body),
         requestID = Body.requestID;
       const requestFile = await ProductsFile.findOne({
@@ -24,11 +24,9 @@ module.exports = () => {
             const inputUrls = product.inputUrls.split(","),
               outputUrls = [];
             for (let url of inputUrls) {
-              console.log("Url is", url);
               url = url.trim();
               try {
                 const imageBuffer = await downloadURL(url);
-                console.log("imageBuffer", imageBuffer);
                 if (!imageBuffer || !imageBuffer.length) {
                   outputUrls.push("");
                 } else {
@@ -50,7 +48,6 @@ module.exports = () => {
             console.error("Error processing image:", error);
           }
         }
-        console.log(products);
         await Products.insertMany(products);
         const countOfProducts = await Products.countDocuments({
           requestID,
@@ -98,10 +95,10 @@ async function downloadURL(url) {
     return "";
   }
 }
-async function callWebHook(url, requestId) {
+async function callWebHook(url, requestID) {
   try {
     await axios.post(url, {
-      requestId,
+      requestID,
       status: "completed",
     });
     await ProductsFile.updateOne(
